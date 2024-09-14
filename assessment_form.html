@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Field Assessment Form</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .item-row, #clientDetails, #technicianDetails {
+            margin-bottom: 10px;
+        }
+        .item-row input, .item-row select {
+            margin-right: 10px;
+        }
+        button {
+            margin-top: 20px;
+        }
+        #response {
+            margin-top: 20px;
+            color: green;
+        }
+        .search-container {
+            margin-bottom: 10px;
+        }
+        .search-input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            box-sizing: border-box;
+        }
+        .remove-btn {
+            background-color: red;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .remove-btn:hover {
+            background-color: darkred;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Field Assessment Form</h2>
+
+    <form id="assessmentForm">
+        <!--client details-->
+        <h5>CLIENT DETAILS</h5>
+        <div id="clientDetails">
+            <label for="clientName">Client / Bank Name:</label>
+            <input type="text" name="clientName" placeholder="e.g. Equity Bank" required>
+
+            <label for="branch">Branch:</label>
+            <input type="text" name="branch" placeholder="e.g. head office" required>
+        </div>
+
+        <!--technician details-->
+        <h5>TECHNICIAN DETAILS</h5>
+        <div id="technicianDetails">
+            <label for="technicianName">Technician Name:</label>
+            <input type="text" name="technicianName" placeholder="your name" required>
+
+            <label for="id">Id Number:</label>
+            <input type="number" name="id" placeholder="your id number" required>
+        </div>
+
+        <div id="itemRows">
+            <h5>WORK DESCRIPTION</h5>
+            <div class="item-row">
+                <label for="item">Item:</label>
+                <div class="search-container">
+                    <input type="text" id="searchInput" class="search-input" placeholder="Search items">
+                </div>
+                <select name="item" id="itemSelect">
+                    <!-- Placeholder option is dynamically controlled -->
+                </select>
+
+                <label for="quantity">Quantity:</label>
+                <input type="number" name="quantity" min="1" required>
+                
+                <!-- Remove button -->
+                <button type="button" class="remove-btn">Remove</button>
+            </div>
+        </div>
+
+        <!-- Button to add more rows -->
+        <button type="button" id="addRowBtn">Add Another Item</button><br><br>
+
+        <!-- Submit button -->
+        <input type="submit" value="Submit Assessment">
+    </form>
+
+    <div id="response"></div>
+
+    <script>
+        const itemSelect = document.getElementById('itemSelect');
+        const searchInput = document.getElementById('searchInput');
+        const form = document.getElementById('assessmentForm');
+        const responseDiv = document.getElementById('response');
+        const addRowBtn = document.getElementById('addRowBtn');
+        const itemRowsDiv = document.getElementById('itemRows');
+        let itemList = [];
+
+        // Fetch items from the server
+        fetch('https://script.google.com/macros/s/AKfycbyPdUES6k44eTKwsspoT1oyHExsjoc-JCNUOe7E1b_Hn_hm6HypOzDwOYflhMRYWvJW/exec')
+            .then(response => response.json())
+            .then(data => {
+                itemList = data; // Store fetched items in a global variable
+                populateDropdown(itemList);
+            })
+            .catch(error => {
+                console.error('Error fetching items:', error);
+            });
+
+        // Function to populate the dropdown
+        function populateDropdown(items) {
+            itemSelect.innerHTML = ''; // Clear the dropdown
+            if (items.length === 0) {
+                itemSelect.innerHTML = '<option value="">No items available</option>';
+            } else {
+                items.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item;
+                    option.text = item;
+                    itemSelect.appendChild(option);
+                });
+            }
+        }
+
+        // Function to filter items based on the search input
+        function filterItems() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const filteredItems = itemList.filter(item => item.toLowerCase().includes(searchTerm));
+            if (searchTerm === '') {
+                itemSelect.innerHTML = '<option value="">Select an item</option>'; // Show placeholder when input is empty
+            }
+            populateDropdown(filteredItems);
+        }
+
+        // Event listener for the search input field
+        searchInput.addEventListener('input', filterItems);
+
+        // Function to dynamically add new rows
+        addRowBtn.addEventListener('click', function() {
+            const newRow = document.createElement('div');
+            newRow.classList.add('item-row');
+            newRow.innerHTML = `
+                <label for="item">Item:</label>
+                <div class="search-container">
+                    <input type="text" class="search-input" placeholder="Search items">
+                </div>
+                <select name="item" required>
+                    <!-- Options will be populated dynamically -->
+                </select>
+
+                <label for="quantity">Quantity:</label>
+                <input type="number" name="quantity" min="1" required>
+                
+                <!-- Remove button -->
+                <button type="button" class="remove-btn">Remove</button>
+            `;
+            itemRowsDiv.appendChild(newRow);
+
+            // Add search functionality to newly added rows
+            const newSearchInput = newRow.querySelector('.search-input');
+            const newItemSelect = newRow.querySelector('select[name="item"]');
+            newSearchInput.addEventListener('input', function() {
+                filterNewItems(newItemSelect, newSearchInput.value);
+            });
+
+            // Add event listener for remove button
+            const removeBtn = newRow.querySelector('.remove-btn');
+            removeBtn.addEventListener('click', function() {
+                newRow.remove();
+            });
+        });
+
+        // Function to filter items in new rows
+        function filterNewItems(selectElement, searchTerm) {
+            const filteredItems = itemList.filter(item => item.toLowerCase().includes(searchTerm));
+            if (searchTerm === '') {
+                selectElement.innerHTML = '<option value="">Select an item</option>'; // Show placeholder when input is empty
+            }
+            populateDropdownForElement(selectElement, filteredItems);
+        }
+
+        // Function to populate dropdown for specific select element
+        function populateDropdownForElement(selectElement, items) {
+            selectElement.innerHTML = ''; // Clear the dropdown
+            if (items.length === 0) {
+                selectElement.innerHTML = '<option value="">No items available</option>';
+            } else {
+                items.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item;
+                    option.text = item;
+                    selectElement.appendChild(option);
+                });
+            }
+        }
+
+        // Handle form submission
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();  // Prevent form from submitting
+
+            const items = [];
+            const quantities = [];
+
+            // Collect all item descriptions and quantities
+            document.querySelectorAll('select[name="item"]').forEach(itemInput => items.push(itemInput.value));
+            document.querySelectorAll('input[name="quantity"]').forEach(quantityInput => quantities.push(quantityInput.value));
+
+            // Display the collected data
+            let responseHtml = "<h3>Submitted Assessment:</h3><ul>";
+            items.forEach((item, index) => {
+                responseHtml += `<li>Item: ${item} | Quantity: ${quantities[index]}</li>`;
+            });
+            responseHtml += "</ul>";
+            responseDiv.innerHTML = responseHtml;
+
+            // Clear the form after submission (optional)
+            form.reset();
+            itemRowsDiv.innerHTML = `
+                <div class="item-row">
+                    <label for="item">Item:</label>
+                    <div class="search-container">
+                        <input type="text" id="searchInput" class="search-input" placeholder="Search items">
+                    </div>
+                    <select name="item" id="itemSelect" required>
+                        <option value="">Select an item</option>
+                    </select>
+
+                    <label for="quantity">Quantity:</label>
+                    <input type="number" name="quantity" min="1" required>
+                    
+                    <!-- Remove button -->
+                    <button type="button" class="remove-btn">Remove</button>
+                </div>
+            `;
+        });
+    </script>
+
+</body>
+</html
